@@ -1,0 +1,119 @@
+link options
+link basename
+link json
+link ximage
+
+procedure usage()
+
+# Modify options according to IDE
+
+	prog := basename(&progname)
+	write("Usage: ", prog, "[options]\n")
+	write(prog, " is an implementation of the language server protocol.")
+	write("You are handling the socket parameters/options for your IDE incorrectly (different IDEs pass different variations of the socket parameter when calling our program).")
+	write("\nOptions:")
+	write("\t -h : show this help\n")
+	exit(-1)
+
+end
+
+
+#################################################################################
+#															Connect to Server																  #
+#################################################################################
+
+
+procedure main(args)
+
+	opts := options(args, "--socket:")
+	if *opts = 0 then usage()
+	port := \opts["-socket"] | usage()
+	port := opts["-socket"]
+
+	client := ":" || port
+	sock := open(client, "n") | stop("open(",server,") ERROR: ", &errortext)
+	if /sock then stop("timeout")
+
+
+
+#################################################################################
+#													Receive Request From client														#
+#################################################################################
+
+	write("Hello")
+	repeat {
+
+		body := &null
+
+		msg := ready(sock, 65536)
+		write(image(msg))
+		if not(body := header(msg)) then {
+			write("We're here")
+			if *select(sock) > 0 then body := ready(sock)
+			write(image(body))
+	}
+
+
+		jsontable := jtou(body)
+		write(ximage(jsontable))
+
+		request_method := jsontable["method"]
+		write("-----------------------------------------")
+		write(request_method)
+		write("-----------------------------------------")
+
+		case request_method of {
+			"initialize": {
+					res := init_response(jsontable)
+					write(res)
+					writes(sock, res)
+			 }
+			default: { write("Don't know what to do with: ", request_method) }
+		}
+	}
+end
+
+
+#################################################################################
+#													Response: initialize	 																#
+#################################################################################
+
+
+procedure header(msg)
+
+# Malformed msg
+# Header only
+# Header + body
+
+	\msg | fail
+
+	write(image(msg))
+	write(image(msg[-4:0]))
+
+	if msg[-4:0] ~== "\r\n\r\n" then {
+		write("Inside if")
+		msg ? {
+				tab(find("\r\n\r\n"))
+				move(4)
+				x := tab(0)
+				write(image(x))
+				return x
+			}
+		}
+
+end
+
+procedure init_response(jsontable)
+	responseBody := "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true}}}}"
+	responseHeader := "Content-Length:" || *responseBody || "\r\n\r\n"
+	write(ximage(jtou(responseBody)))
+
+	return responseHeader || responseBody
+end
+
+
+#------------------------------------------Initialize response message-----------------------------------#
+# Null version of initialize response:
+# initializeMsg := "Content-Length:54\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":null}}"
+#	Copied initialize response from LSP sample
+# initializeMsg := "Content-Length:170\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"textDocumentSync\":2,\"completionProvider\":{\"resolveProvider\":true},\"workspace\":{\"workspaceFolders\":{\"supported\":true}}}}"
