@@ -25,6 +25,9 @@ Client setup: <br />
 
 > 1. Move to the client subfolder `cd /path_to_repo/client/` <br />
 > 2. Run command: `npm i` to install all dependencies required within the client subfolder. <br />
+> 3. Change server command path in extension.ts: <br /> 
+> > 3a) navigate to `/path_to_repo/client/src/extension.ts` file <br />
+> > 3b) Edit line 24 (alter path within <...>, requires absolute path) --> <br />`const unicon: Executable = { command: '</ABSOLUTE_PATH_TO_REPO_DIRECTORY/server/unicon-lsp-server>', transport: transport };`
 
 Server setup: <br />
 
