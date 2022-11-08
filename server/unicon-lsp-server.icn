@@ -43,19 +43,11 @@ procedure main(args)
 	write("Hello")
 	repeat {
 
-		body := &null
-
-		msg := ready(sock, 65536)
-		write(image(msg))
-		if not(body := header(msg)) then {
-			write("We're here")
-			if *select(sock) > 0 then body := ready(sock)
-			write(image(body))
-	}
-
+		body := get_request(sock)
+		write(ximage(body))
 
 		jsontable := jtou(body)
-		write(ximage(jsontable))
+		#write(ximage(jsontable))
 
 		request_method := jsontable["method"]
 		write("-----------------------------------------")
@@ -79,28 +71,28 @@ end
 #################################################################################
 
 
-procedure header(msg)
 
-# Malformed msg
-# Header only
-# Header + body
 
-	\msg | fail
+procedure get_request(sock)
 
-	write(image(msg))
-	write(image(msg[-4:0]))
+	local body, msg
 
-	if msg[-4:0] ~== "\r\n\r\n" then {
-		write("Inside if")
+	while /body | body == "" do {
+		select(sock)
+		msg := ready(sock)
+
 		msg ? {
-				tab(find("\r\n\r\n"))
-				move(4)
-				x := tab(0)
-				write(image(x))
-				return x
+			tab(find("Content-Length:") + 15)
+			len := integer(tab(many(&digits)))
+			tab(upto("\r\n\r\n") + 4)
+			if pos(0) then {
+					body := ready(sock, len)
 			}
+			else
+			 	body := tab(0)
 		}
-
+	}
+	return body
 end
 
 procedure init_response(jsontable)
