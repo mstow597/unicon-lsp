@@ -6,25 +6,30 @@ Pre-requisites: git, node, unicon, and VScode installed
 
 # Description
 
-This repo contains both the client and server. All code/files relevant to the client are contained within the main directory; whereas, the server code is contained within /path_to_repo/server directory. \* (return to this later to package all client code in its own folder - requires edits to config file(s)).
+This repo contains both the client and server... 
 
-# Client Setup
+# Setup
 
-Notes: <br />
+Important notes before we begin: <br />
 
-> 1. .gitignore contains node_modules and out folders.<br />
-> 2. node_modules will hold all dependencies required by the client. <br />
-> 3. out holds the transpiled code (Typescript --> Javascript) <br />
+> 1. .gitignore contains (among others) node_modules and out folders.<br />
+> 2. node_modules will hold all dependencies required within the main directory and the client subfolder (you will notice a node_modules folder within each of these directories). <br />
+> 3. out holds the transpiled code (Typescript --> Javascript) following build/watch script execution. <br />
 
 Acquiring dependencies: <br />
 
-> 1. Move to client folder `cd /path_to_repo` <br />
-> 2. Run command: `npm i` <br />
->    Note: package.json contains the names of all required dependencies. When we run npm i, our package manager finds and installs all of these dependencies into the node_modules folder.
+> 1. Move to the main directory `cd /path_to_repo/` <br />
+> 2. Run command: `npm i` to install all dependencies required within the main directory. <br />
 
-# Server setup
+Client setup: <br />
 
-Steps to set up our server: <br />
+> 1. Move to the client subfolder `cd /path_to_repo/client/` <br />
+> 2. Run command: `npm i` to install all dependencies required within the client subfolder. <br />
+
+Server setup: <br />
 
 > 1. Move to the server folder: `cd /path_to_repo/server` <br />
 > 2. Build server: `unicon unicon-lsp-server.icn`
+
+
+# Run and Debug
