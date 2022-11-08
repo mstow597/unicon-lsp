@@ -8,7 +8,7 @@ This repo contains both the client and server. All code/files relevant to the cl
 Notes: <br />
 > 1) .gitignore contains node_modules and out folders.<br />
 > 2) node_modules will hold all dependencies required by the client. <br />
-> 3) out holds the transpiled code (Typescript --> Javascript)
+> 3) out holds the transpiled code (Typescript --> Javascript) <br />
 We acquire our dependencies through the steps below: <br />
 > 1) Move to client folder `cd /path_to_repo` <br />
 > 2) Run command: `npm i` <br /> 
