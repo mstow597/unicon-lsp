@@ -1,20 +1,27 @@
-# Unicon Language Server Development
-Pre-requisites: git, node, unicon, and VScode installed
-# Client Setup
+# Hello World Sample
 
-Notes: <br />
-> 1) .gitignore contains node_modules and out folders.<br />
-> 2) node_modules will hold all dependencies required by the client. <br />
-> 3) out holds the transpiled code (Typescript --> Javascript)
+This is a Hello World example that shows you how to use VS Code API.
 
-We acquire our dependencies through the steps below: <br />
-> 1) Move to client folder `cd /path_to_repo/client` <br />
-> 2) Run command: `npm i` <br /> 
+Guide for this sample: https://code.visualstudio.com/api/get-started/your-first-extension.
 
-Note: package.json contains the names of all required dependencies. When we run npm i, our package manager finds and installs all of these dependencies into the node_modules folder.
+## Demo
 
-# Server setup
-Steps to set up our server: <br />
-> 1) Move to the server folder: `cd /path_to_repo/server` <br />
-> 2) Build server: `unicon unicon-lsp-server.icn`
+![demo](demo.gif)
 
+## VS Code API
+
+### `vscode` module
+
+- [`commands.registerCommand`](https://code.visualstudio.com/api/references/vscode-api#commands.registerCommand)
+- [`window.showInformationMessage`](https://code.visualstudio.com/api/references/vscode-api#window.showInformationMessage)
+
+### Contribution Points
+
+- [`contributes.commands`](https://code.visualstudio.com/api/references/contribution-points#contributes.commands)
+
+## Running the Sample
+
+- Run `npm install` in terminal to install dependencies
+- Run the `Run Extension` target in the Debug View. This will:
+	- Start a task `npm: watch` to compile the code
+	- Run the extension in a new VS Code window
