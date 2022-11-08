@@ -10,7 +10,7 @@ Notes: <br />
 > 2) node_modules will hold all dependencies required by the client. <br />
 > 3) out holds the transpiled code (Typescript --> Javascript) <br />
 
-We acquire our dependencies through the steps below: <br />
+Acquiring dependencies: <br />
 > 1) Move to client folder `cd /path_to_repo` <br />
 > 2) Run command: `npm i` <br /> 
 Note: package.json contains the names of all required dependencies. When we run npm i, our package manager finds and installs all of these dependencies into the node_modules folder.
