@@ -19,7 +19,7 @@ end
 
 
 #################################################################################
-#															Connect to Server																  #
+#							Connect to Server									#
 #################################################################################
 
 
@@ -37,40 +37,58 @@ procedure main(args)
 
 
 #################################################################################
-#													Receive Request From client														#
+#									Main			 							#
 #################################################################################
+	
 
-	write("Hello")
 	repeat {
 
 		body := get_request(sock)
-		write(ximage(body))
 
 		jsontable := jtou(body)
-		#write(ximage(jsontable))
 
 		request_method := jsontable["method"]
+		request_params := jsontable["params"]
+		request_id := jsontable["id"]
 		write("-----------------------------------------")
 		write(request_method)
 		write("-----------------------------------------")
 
 		case request_method of {
 			"initialize": {
-					res := init_response(jsontable)
-					write(res)
-					writes(sock, res)
+				result := initialize_handler(request_params)
+				res := build_response(request_id, result)
+				write(res)
+				writes(sock, res)
+				
 			 }
+			"textDocument/declaration" : {
+				write("Don't know what to do with: ", request_method)
+			 }
+			"textDocument/completion" : {
+				result := handle_completion(request_params)
+				res := build_response(request_id, result)
+				write(res)
+				writes(sock, res)
+			}
+			"$/cancelRequest" : {
+				# TODO:
+				# 	One thread for communication
+				# 	Spin up thread(s) for processing requests and tie request_id to thread
+				# Handling cancel requests:
+				#	kill thread associated with request_id
+			
+			
+				write("We received a cancel request.")
+			}
 			default: { write("Don't know what to do with: ", request_method) }
 		}
 	}
 end
 
-
 #################################################################################
-#													Response: initialize	 																#
+#								Get Request										#
 #################################################################################
-
-
 
 
 procedure get_request(sock)
@@ -78,9 +96,12 @@ procedure get_request(sock)
 	local body, msg
 
 	while /body | body == "" do {
+		
+		# Block and get message on socket
 		select(sock)
 		msg := ready(sock)
 
+		# Handling socket reading anomoly: header alone or header + body
 		msg ? {
 			tab(find("Content-Length:") + 15)
 			len := integer(tab(many(&digits)))
@@ -92,20 +113,168 @@ procedure get_request(sock)
 			 	body := tab(0)
 		}
 	}
+
 	return body
 end
 
-procedure init_response(jsontable)
-	responseBody := "{\"jsonrpc\":\"2.0\",\"id\":0,\"result\":{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true}}}}"
-	responseHeader := "Content-Length:" || *responseBody || "\r\n\r\n"
-	write(ximage(jtou(responseBody)))
 
+
+#################################################################################
+#								Build Response									#
+#################################################################################
+
+procedure build_response(id, results)
+	responseBody := "{\"jsonrpc\":\"2.0\",\"id\":"||id||",\"result\":"||results||"}"
+	responseHeader := "Content-Length:" || *responseBody || "\r\n\r\n"
 	return responseHeader || responseBody
 end
 
 
-#------------------------------------------Initialize response message-----------------------------------#
-# Null version of initialize response:
-# initializeMsg := "Content-Length:54\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":null}}"
-#	Copied initialize response from LSP sample
-# initializeMsg := "Content-Length:170\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"capabilities\":{\"textDocumentSync\":2,\"completionProvider\":{\"resolveProvider\":true},\"workspace\":{\"workspaceFolders\":{\"supported\":true}}}}"
+#################################################################################
+#							Response: initialize								#
+#################################################################################
+
+# TODO: 
+# 	As you add more functionality (capabilities), you must add them to the string 
+# 	below within capabilities property
+
+#	Handle results --> generator prepending escape sequence before special characters
+
+procedure initialize_handler(jsontable)
+
+	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true}}}"
+
+	return body
+end
+
+
+#################################################################################
+#							Capability: declarationProvider						#
+#################################################################################
+
+# This capability defines "go to declaration" functionality.
+# The go to declaration request is sent from the client to the server to resolve 
+# the declaration location of a symbol at a given text document position.
+# 
+# Client Capability (VS code definition):
+#	name: 
+#	type: 
+# Server Capability:
+#	name: 
+#	type: 
+#
+
+
+
+
+#################################################################################
+#							Capability: completionProvider						#
+#################################################################################
+
+
+#############################################################
+#						Example Request 				    #
+#############################################################
+#	{													    #
+#  		"jsonrpc": "2.0",								    #
+#  		"id": 1,										    #
+#  		"method": "textDocument/completion",				#
+#  		"params": {											#
+#    		"textDocument": {								#
+#      		"uri": "file:///home/mark/Desktop/test.icn"		#
+#    		},												#
+#    		"position": {									#
+#      		"line": 0,										#
+#      		"character": 1									#
+#    		},												#
+#    		"context": {									#
+#      		"triggerKind": 1								#
+#   		 }												#
+# 		 }													#
+#	}														#
+#############################################################
+
+procedure handle_completion(params)
+	textDocument := params["textDocument"]["uri"]
+	line := params["position"]["line"]
+	character := params["position"]["character"]
+
+	# FIXME: Get rid of uri prefix file:// 
+	textDocument := textDocument[8:0]
+
+	fin := open(textDocument) | stop("Can't open file: ", ximage(textDocument))
+	
+
+	# Move back 1 character at a time until char == " " or start of line
+	# Counter variable to make sure we do not exceed value of character (position in line) 
+
+	every !line & write(read(fin))
+	data := read(fin)
+	write(data)
+	close(fin)
+	
+
+
+
+	data ? {
+		#move(character)
+
+		word := ""
+		count := character
+		ch := move(count)
+		while (ch ~== ' ' & count > 0) do {
+			writes(ch)
+			write(count)
+			word := word || ch
+			count := count - 1
+			ch := move(count)
+		}
+		word := reverse(word)
+	}
+	
+	write(word)
+	
+
+
+	# procedure, link, class, main
+
+
+	
+#	data ? {
+#
+#		position := character - 1
+#
+#		while ((data[position] ~== " ") & (position > 0)) do position := position - 1 
+#		
+#		move(position)
+#		char := tab(1)
+#		#word := tab(many(&digits ++ &letters ++ '_'))
+#	}
+#
+#	write(image(word))
+	
+
+
+
+	#T := table()
+	#T["isComplete"] :=  &null # "__true__"
+	#L := []
+	#T["items"] := L
+
+	#completions := ["procedur", "main"]
+	#every w := !completions do 
+	#	put(L, table("label", w)) 
+
+	#write(ximage(T))
+	#write(ximage(utoj(L))) 
+	#results := utoj(T)
+	
+	#write(ximage(results))
+
+
+	results := "{\"isComplete\":\"true\",\"items\":[{\"label\":\"apple\"},{\"label\":\"along\"},{\"label\":\"anomoly\"},{\"label\":\"according\"},{\"label\":\"args\"}]}"
+	#write(results)
+
+	return results
+end
+
