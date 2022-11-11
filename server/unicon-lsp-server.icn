@@ -46,6 +46,7 @@ procedure main(args)
 		body := get_request(sock)
 
 		jsontable := jtou(body)
+	
 
 		request_method := jsontable["method"]
 		request_params := jsontable["params"]
@@ -62,14 +63,51 @@ procedure main(args)
 				writes(sock, res)
 				
 			 }
+			
+# Array of strings holding the currently "opened" files (i.e. tabs in VS workspace) 
+# didOpen -- add file name to the array
+#	-Appears client is holding a list of open files.
+#	-When file is not in the list of currently "open" files and we select the file, this file will be added to the list.
+#	-If we then cycle through files that are already "open" (i.e. in the list), we will not receive another didOpen notification.
+#	-In essence, we only recieve the didOpen notification the first time the file is opened. Cycling does not trigger further didOpen notifications.
+#
+# didClose
+#	-Triggered by closing a tab in VS code. 
+#	-This removes the file from the list of open files on the client side and send notification to server.
+#	-Action on server --> remove file from the list of open files on server end, free up memory space held by that file (not sure if we are using string or creating a temp file).
+#	
+# didChange -- file synchronization
+#	-Each "open" file requires some way to synchronize (create temp file or hold in string)
+#	-Full file sync vs. 
+#
+# TODO:
+#	after implementing open file storing on server side, adjust parameters for handler functions to accept file as well.
+
+			"textDocument/didOpen" : {
+				
+			}
+			"textDocument/didClose" : {
+
+			}
+			"textDocument/didChange" : {
+				file_contents := request_params["contentChanges"]
+				file_contents_1 := file_contents[1]
+				
+				#write(ximage(file_contents_1))
+				file_text := String(file_contents_1["text"])
+				write(file_text)
+			}
 			"textDocument/declaration" : {
 				write("Don't know what to do with: ", request_method)
 			 }
 			"textDocument/completion" : {
-				result := handle_completion(request_params)
-				res := build_response(request_id, result)
-				write(res)
-				writes(sock, res)
+				#result := handle_completion(request_params, file_text)
+				#res := build_response(request_id, result)
+				#write(res)
+				#writes(sock, res)
+				file_contents := &null
+				file_text := &null
+
 			}
 			"$/cancelRequest" : {
 				# TODO:
@@ -143,6 +181,7 @@ end
 procedure initialize_handler(jsontable)
 
 	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true}}}"
+	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true},\"textDocumentSync\":1}}"
 
 	return body
 end
@@ -194,49 +233,69 @@ end
 #	}														#
 #############################################################
 
-procedure handle_completion(params)
+procedure handle_completion(params, file_contents)
 	textDocument := params["textDocument"]["uri"]
 	line := params["position"]["line"]
 	character := params["position"]["character"]
 
-	# FIXME: Get rid of uri prefix file:// 
-	textDocument := textDocument[8:0]
+#	 Move back 1 character at a time until char == " " or start of line
+#	 Counter variable to make sure we do not exceed value of character (position in line) 
+#	 Issue with reading file - reading original file, not buffered.
 
-	fin := open(textDocument) | stop("Can't open file: ", ximage(textDocument))
-	
+	f := open("nothing_to_see_here.txt", "w") | stop(&errortext, "fail to open")
+	write(f, file_contents)
 
-	# Move back 1 character at a time until char == " " or start of line
-	# Counter variable to make sure we do not exceed value of character (position in line) 
 
-	every !line & write(read(fin))
-	data := read(fin)
+	close(f)
+
+	f := open("nothing_to_see_here.txt") | stop(&errortext, "fail to open")
+
+	every !line & read(f)
+	data := read(f)
 	write(data)
-	close(fin)
+
+	close(f)	
+	
+#	Random words in a \\n line test \\n
+
+
+#	current_word := ""
+#	data ? {
+#		if character == 0
+#		move(character)
+#		while(ch ~== ' ') do {
+#			ch := move(-1)
+#			current_word := current_word || ch
+#		}
+#	}
+#	current_word := reverse(current_word)
+
+
+
+#	data ? {
+#		move(character)
+
+#		word := ""
+#		count := character
+#		ch := move(count)
+
+#		special operators in scanning environment 
+		
+#		while (ch ~== ' ' & count > 0) do {
+#			writes(ch)
+#			write(count)
+#			word := word || ch
+#			count := count - 1
+#			ch := move(count)
+#		}
+#		word := reverse(word)
+#	}
+#	
+#	write(word)
 	
 
 
-
-	data ? {
-		#move(character)
-
-		word := ""
-		count := character
-		ch := move(count)
-		while (ch ~== ' ' & count > 0) do {
-			writes(ch)
-			write(count)
-			word := word || ch
-			count := count - 1
-			ch := move(count)
-		}
-		word := reverse(word)
-	}
-	
-	write(word)
-	
-
-
-	# procedure, link, class, main
+#	procedure, link, class, main
 
 
 	
@@ -255,25 +314,25 @@ procedure handle_completion(params)
 	
 
 
-
-	#T := table()
-	#T["isComplete"] :=  &null # "__true__"
-	#L := []
-	#T["items"] := L
-
-	#completions := ["procedur", "main"]
-	#every w := !completions do 
-	#	put(L, table("label", w)) 
-
-	#write(ximage(T))
-	#write(ximage(utoj(L))) 
-	#results := utoj(T)
-	
-	#write(ximage(results))
+#	 tojson
+#	T := table()
+#	T["isComplete"] :=  &null # "__true__"
+#	L := []
+#	T["items"] := L
+#
+#	completions := ["procedur", "main"]
+#	every w := !completions do 
+#		put(L, table("label", w)) 
+#
+#	write(ximage(T))
+#	write(ximage(utoj(L))) 
+#	results := utoj(T)
+#	
+#	write(ximage(results))
 
 
 	results := "{\"isComplete\":\"true\",\"items\":[{\"label\":\"apple\"},{\"label\":\"along\"},{\"label\":\"anomoly\"},{\"label\":\"according\"},{\"label\":\"args\"}]}"
-	#write(results)
+#	write(results)
 
 	return results
 end
