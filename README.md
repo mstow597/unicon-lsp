@@ -1,5 +1,3 @@
-# unicon-lsp
-
 # Unicon Language Server Development
 
 Pre-requisites: git, node, unicon, and VScode installed
@@ -46,7 +44,9 @@ We can test our server using the run and debug feature in VS code.
 <br />
 
 Figure 1: Run and Debug Navigation Selection <br />
-![image](https://user-images.githubusercontent.com/80660221/201660824-6663ce74-2ea7-4c43-9b7c-9faac265384d.png)
+
+![tempsnip](https://user-images.githubusercontent.com/80660221/201693239-13e15660-fec9-45fb-8945-217ed49a40dc.png)
+
 <br /><br />
 
 > After selecting the Run and Debug option, you should see a change in the panel to the right of the nav bar (see Figure 2).
@@ -64,11 +64,18 @@ Figure 2: Run and Debug Display
 Figure 3: New Extension Host Window After Launch 
 <br />
 
-![image](https://user-images.githubusercontent.com/80660221/201666703-3e416cf8-1ee4-4d25-a114-2421e61fbda5.png)
+![image](https://user-images.githubusercontent.com/80660221/201689356-331dcb3b-6153-477e-94d3-7b644cacc84a.png)
 
 <br /><br />
 
-> 
+### Working with the Extension Development Host
+
+> After launching the extension development host using the steps above, you should see a vs code window similar to that in figure 3.
+> We have configured our client to trace the communication between server and client. This can be found in the package.json file in the root directory of our project (under "contributes" property). To access these logs, we must have a vs code integrated terminal window open. The terminal appears at the bottom of your vs code window by default.  navigate to the output
+
+<br /> 
+
+![tempsnip](https://user-images.githubusercontent.com/80660221/201691900-a787a448-1d30-483b-82c7-f3aa1dab8b21.png)
 
 
 
