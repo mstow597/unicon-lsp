@@ -3,6 +3,9 @@ link basename
 link ximage
 import json
 
+
+global openFiles
+
 procedure usage()
 
 # Modify options according to IDE
@@ -40,7 +43,8 @@ procedure main(args)
 #									Main			 							#
 #################################################################################
 	
-
+	openFiles := table()
+	built_in_functions := [:function():]
 	repeat {
 
 		body := get_request(sock)
@@ -64,7 +68,10 @@ procedure main(args)
 				
 			 }
 			
-# Array of strings holding the currently "opened" files (i.e. tabs in VS workspace) 
+# Document Synchronization. Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_synchronization 
+#
+# General information:
+#
 # didOpen -- add file name to the array
 #	-Appears client is holding a list of open files.
 #	-When file is not in the list of currently "open" files and we select the file, this file will be added to the list.
@@ -84,29 +91,30 @@ procedure main(args)
 #	after implementing open file storing on server side, adjust parameters for handler functions to accept file as well.
 
 			"textDocument/didOpen" : {
+				uri := request_params["textDocument"]["uri"]
 				
+				#TODO read from saved file instead of empty string
+				openFiles[\uri] := ""
 			}
 			"textDocument/didClose" : {
-
+				uri := request_params["textDocument"]["uri"]
+				delete(openFiles, \uri)
 			}
 			"textDocument/didChange" : {
-				
-				write("Hit didchange")
+				uri := request_params["textDocument"]["uri"]
 				file_contents := request_params["contentChanges"][1]["text"]
-				
+				openFiles[\uri] := file_contents
 			}
 			"textDocument/declaration" : {
 				write("Don't know what to do with: ", request_method)
 			 }
 			"textDocument/completion" : {
-				write("Hit completion")
-				result := handle_completion(request_params, file_text)
+				uri := request_params["textDocument"]["uri"]
+				file_contents := openFiles[uri]
+				result := handle_completion(request_params, file_contents)
 				res := build_response(request_id, result)
 				write(res)
 				writes(sock, res)
-				file_contents := &null
-				file_text := &null
-
 			}
 			"$/cancelRequest" : {
 				# TODO:
@@ -171,6 +179,9 @@ end
 #							Response: initialize								#
 #################################################################################
 
+# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize 
+#
+#
 # TODO: 
 # 	As you add more functionality (capabilities), you must add them to the string 
 # 	below within capabilities property
@@ -190,6 +201,9 @@ end
 #							Capability: declarationProvider						#
 #################################################################################
 
+# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_declaration
+# 
+#
 # This capability defines "go to declaration" functionality.
 # The go to declaration request is sent from the client to the server to resolve 
 # the declaration location of a symbol at a given text document position.
@@ -231,6 +245,12 @@ end
 # 		 }													#
 #	}														#
 #############################################################
+
+# Build list of keywords, reserved words, functions (done)
+# Default: send keywords, reserved words
+#  ||| concatenate lists
+
+global built_in_functions
 
 procedure handle_completion(params, file_contents)
 	textDocument := params["textDocument"]["uri"]
@@ -309,24 +329,20 @@ procedure handle_completion(params, file_contents)
 	
 
 
-#	 tojson
-#	T := table()
-#	T["isComplete"] :=  "__true__"
-#	L := []
-#	T["items"] := L
-#
-#	completions := ["procedure", "main"]
-#	every w := !completions do 
-#		put(L, table("label", w)) 
-#
-#	write(ximage(T))
-#	write(ximage(utoj(L))) 
-#	results := tojson(T)
-#	
-#	write(ximage(results))
 
+	T := table()
+	T["isComplete"] :=  "__true__"
+	L := []
+	T["items"] := L
 
-	results := "{\"isComplete\":\"true\",\"items\":[{\"label\":\"apple\"},{\"label\":\"along\"},{\"label\":\"anomoly\"},{\"label\":\"according\"},{\"label\":\"args\"}]}"
+	completions := built_in_functions #["procedure", "main"]
+	every w := !completions do 
+		put(L, table("label", w)) 
+
+	results := tojson(T)
+	
+
+#	results := "{\"isComplete\":\"true\",\"items\":[{\"label\":\"apple\"},{\"label\":\"along\"},{\"label\":\"anomoly\"},{\"label\":\"according\"},{\"label\":\"args\"}]}"
 #	write(results)
 
 	return results
