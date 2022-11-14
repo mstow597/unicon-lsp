@@ -1,7 +1,7 @@
 link options
 link basename
-link json
 link ximage
+import json
 
 procedure usage()
 
@@ -90,21 +90,20 @@ procedure main(args)
 
 			}
 			"textDocument/didChange" : {
-				file_contents := request_params["contentChanges"]
-				file_contents_1 := file_contents[1]
 				
-				#write(ximage(file_contents_1))
-				file_text := String(file_contents_1["text"])
-				write(file_text)
+				write("Hit didchange")
+				file_contents := request_params["contentChanges"][1]["text"]
+				
 			}
 			"textDocument/declaration" : {
 				write("Don't know what to do with: ", request_method)
 			 }
 			"textDocument/completion" : {
-				#result := handle_completion(request_params, file_text)
-				#res := build_response(request_id, result)
-				#write(res)
-				#writes(sock, res)
+				write("Hit completion")
+				result := handle_completion(request_params, file_text)
+				res := build_response(request_id, result)
+				write(res)
+				writes(sock, res)
 				file_contents := &null
 				file_text := &null
 
@@ -294,10 +293,6 @@ procedure handle_completion(params, file_contents)
 #	write(word)
 	
 
-
-#	procedure, link, class, main
-
-
 	
 #	data ? {
 #
@@ -316,17 +311,17 @@ procedure handle_completion(params, file_contents)
 
 #	 tojson
 #	T := table()
-#	T["isComplete"] :=  &null # "__true__"
+#	T["isComplete"] :=  "__true__"
 #	L := []
 #	T["items"] := L
 #
-#	completions := ["procedur", "main"]
+#	completions := ["procedure", "main"]
 #	every w := !completions do 
 #		put(L, table("label", w)) 
 #
 #	write(ximage(T))
 #	write(ximage(utoj(L))) 
-#	results := utoj(T)
+#	results := tojson(T)
 #	
 #	write(ximage(results))
 
