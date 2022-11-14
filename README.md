@@ -40,27 +40,24 @@ We can test our server using the run and debug feature in VS code.
 
 ### Getting Started
 
-> You can find the "Run and Debug" option on the left navigation bar in VS code (see Figure 1).
+- You can find the "Run and Debug" option on the left navigation bar in VS code (see Figure 1).
 <br />
 
-Figure 1: Run and Debug Navigation Selection <br />
-
+Figure 1: Run and Debug Navigation Selection
 ![tempsnip](https://user-images.githubusercontent.com/80660221/201693239-13e15660-fec9-45fb-8945-217ed49a40dc.png)
 
 <br /><br />
 
-> After selecting the Run and Debug option, you should see a change in the panel to the right of the nav bar (see Figure 2).
+- After selecting the Run and Debug option, you should see a change in the panel to the right of the nav bar (see Figure 2).
 <br />
 
 Figure 2: Run and Debug Display
-<br />
-
 ![tempsnip](https://user-images.githubusercontent.com/80660221/201693976-965d96cd-a63a-448b-9fe5-98bd26e73895.png)
 
 <br />
 <br />
 
-> From the drop down menu indicated by the red arrow in Figure 2, select the "Launch Client" option then press F5 or the green button to the left to start. You will see a new separate "Extension Development Host" vscode window appear as indicated in Figure 3 (below). This serves as our playground for testing the unicon language server. 
+- From the drop down menu indicated by the yellow arrow in Figure 2, select the "Launch Client" option then press F5 or the green button to the left to start. You will see a new separate "Extension Development Host" vscode window appear as indicated in Figure 3 (below). This serves as our playground for testing the unicon language server. 
 
 <br />
 Figure 3: New Extension Host Window After Launch 
@@ -72,8 +69,11 @@ Figure 3: New Extension Host Window After Launch
 
 ### Working with the Extension Development Host
 
-> After launching the extension development host using the steps above, you should see a vs code window similar to that in figure 3.
-> We have configured our client to trace the communication between server and client. This can be found in the package.json file in the root directory of our project (under "contributes" property). To access these logs, we must have a vs code integrated terminal window open. The terminal appears at the bottom of your vs code window by default.  navigate to the output
+- After launching the extension development host using the steps above, you should see a vs code window similar to that in figure 3. <br />
+- We have configured our client to trace the communication between server and client. This can be found in the package.json file in the root directory of our project (under "contributes" property). <br />
+- To access the trace logs, we must have a vs code integrated terminal window open. The terminal appears at the bottom of your vs code window by default and is shown in figure 4 (below). If you do not see this window, use the shortcut:  ``ctrl + shift + ` `` or 
+
+
 
 <br /> 
 
