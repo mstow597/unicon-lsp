@@ -54,7 +54,9 @@ Figure 1: Run and Debug Navigation Selection <br />
 
 Figure 2: Run and Debug Display
 <br />
-![image](https://user-images.githubusercontent.com/80660221/201667266-6414652c-848f-43e8-808a-5edbcd64e365.png)
+
+![tempsnip](https://user-images.githubusercontent.com/80660221/201693976-965d96cd-a63a-448b-9fe5-98bd26e73895.png)
+
 <br />
 <br />
 
