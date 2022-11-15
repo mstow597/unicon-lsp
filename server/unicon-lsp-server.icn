@@ -4,7 +4,11 @@ link ximage
 import json
 
 
-global openFiles
+global openFiles					# File container for open files
+global built_in_functions			# List containing all function names in Unicon
+global action_words					# List containing the action words (subset of reserved words)
+global declarative_expressions		# List containing the declarative expressions (subset of reserved words)
+global syntax_reserved_words		# List containing the syntax reserved words (subset of reserved words)
 
 procedure usage()
 
@@ -131,6 +135,14 @@ procedure main(args)
 	}
 end
 
+
+#################################################################################
+#                               Build Lists                                     #
+#################################################################################
+
+
+
+
 #################################################################################
 #								Get Request										#
 #################################################################################
@@ -246,11 +258,12 @@ end
 #	}														#
 #############################################################
 
+
+
 # Build list of keywords, reserved words, functions (done)
 # Default: send keywords, reserved words
 #  ||| concatenate lists
 
-global built_in_functions
 
 procedure handle_completion(params, file_contents)
 	textDocument := params["textDocument"]["uri"]
@@ -264,7 +277,6 @@ procedure handle_completion(params, file_contents)
 	f := open("nothing_to_see_here.txt", "w") | stop(&errortext, "fail to open")
 	write(f, file_contents)
 
-
 	close(f)
 
 	f := open("nothing_to_see_here.txt") | stop(&errortext, "fail to open")
@@ -275,8 +287,6 @@ procedure handle_completion(params, file_contents)
 
 	close(f)	
 	
-#	Random words in a \\n line test \\n
-
 
 #	current_word := ""
 #	data ? {
@@ -293,13 +303,10 @@ procedure handle_completion(params, file_contents)
 
 #	data ? {
 #		move(character)
-
 #		word := ""
 #		count := character
 #		ch := move(count)
-
 #		special operators in scanning environment 
-		
 #		while (ch ~== ' ' & count > 0) do {
 #			writes(ch)
 #			write(count)
