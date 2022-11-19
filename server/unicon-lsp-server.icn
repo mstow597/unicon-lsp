@@ -89,18 +89,16 @@ procedure main(args)
 		write("-----------------------------------------")
 
 
-# Text Document Synchronization (didOpen, didClose, and didChange cases in switch statement below). 
-# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_synchronization 
-
 		case request_method of {
 			"initialize": {
+				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
 				result := initialize_handler(request_params)
 				res := build_response(request_id, result)
 				write(res)
 				writes(sock, res)
-				
 			 }
 			"textDocument/didOpen" : {
+				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didOpen
 				if \(uri := request_params["textDocument"]["uri"]) then {
 					file := uri[8:0]
 					if f := open(file) then {
@@ -111,18 +109,22 @@ procedure main(args)
 				openFiles[\uri] := initial_file_contents
 			}
 			"textDocument/didClose" : {
+				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didClose
 				uri := request_params["textDocument"]["uri"]
 				delete(openFiles, \uri)
 			}
 			"textDocument/didChange" : {
+				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didChange
 				uri := request_params["textDocument"]["uri"]
 				file_contents := request_params["contentChanges"][1]["text"]
 				openFiles[\uri] := file_contents
 			}
 			"textDocument/declaration" : {
+				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_declaration
 				write("Don't know what to do with: ", request_method)
 			 }
 			"textDocument/completion" : {
+				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
 				uri := request_params["textDocument"]["uri"]
 				file_contents := openFiles[uri]
 				result := handle_completion(request_params, file_contents)
@@ -160,18 +162,9 @@ procedure build_global_variables()
 	preprocessors := ["$define", "$else", "$endif", "$error", "$ifdef", "$ifndef", "$include", "$line", "$undef", "#line"]
 
 	
-
-
-	# uni/lib, uni/3D, uni/GUI 
-	# start with lib or 3D (3d best)
-	# unidoc is not a standard library, we must add it to the PATH
-	# to add to path use command: export IPATH=/home/mark/Documents/unicon/uni/unidoc
-
 	link_functions := table()
 	ipl := open("/home/mark/Documents/unicon/ipl/procs/*.icn")
 	
-
-
 # TODO: Setup our database of procedures contained within files, files within packages, etc. using UniDoc 
 # All of this code below to be replaced.
 
@@ -284,7 +277,7 @@ procedure build_unidoc()
 end
 
 #################################################################################
-#								Get Request										#
+#                               Get Request                                     #
 #################################################################################
 
 
@@ -349,7 +342,7 @@ procedure get_context(file_contents, line_number, character)
 end
 
 #################################################################################
-#							Response: initialize								#
+#                             Response: initialize                              #
 #################################################################################
 
 # Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize 
@@ -392,12 +385,12 @@ end
 
 
 #################################################################################
-#							Capability: completionProvider						#
+#                         Capability: completionProvider                        #
 #################################################################################
 
 
 #############################################################
-#						Example Request 				    #
+#                       Example Request                     #
 #############################################################
 #   {                                                       #
 #       "jsonrpc": "2.0",                                   #
