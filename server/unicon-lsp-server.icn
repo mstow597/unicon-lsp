@@ -1,14 +1,31 @@
+# uniclass.dir
+# uniclass.pag
+# avoid odbc (database)
+# interfaces with SQLite - if persistent data 
+
 link options
 link basename
 link ximage
+link strings
+import UniDoc
 import json
 
 
+
 global openFiles					# File container for open files
-global built_in_functions			# List containing all function names in Unicon
+global built_in_functions			# List containing all native function names
 global action_words					# List containing the action words (subset of reserved words)
 global declarative_expressions		# List containing the declarative expressions (subset of reserved words)
 global syntax_reserved_words		# List containing the syntax reserved words (subset of reserved words)
+global keywords						# List containing all keywords
+global preprocessors				# List containing all preprocessors
+global link_functions				# table() with key:value --> file_name:table() with key:value --> procedure:list where list contains the parameters for the function  
+
+
+#################################################################################
+#                              usage procedure                                  #
+#################################################################################
+
 
 procedure usage()
 
@@ -37,6 +54,13 @@ procedure main(args)
 	port := \opts["-socket"] | usage()
 	port := opts["-socket"]
 
+
+
+	if &features == "MacOs" then
+		client := "localhost:" || port
+	else
+		client := ":" || port
+
 	client := ":" || port
 	sock := open(client, "n") | stop("open(",server,") ERROR: ", &errortext)
 	if /sock then stop("timeout")
@@ -44,15 +68,16 @@ procedure main(args)
 
 
 #################################################################################
-#									Main			 							#
+#                                   Main Loop                                   #
 #################################################################################
 	
-	openFiles := table()
-	built_in_functions := [:function():]
+	build_global_variables()
+	build_unidoc()
+	
 	repeat {
 
-		body := get_request(sock)
 
+		body := get_request(sock)
 		jsontable := jtou(body)
 	
 
@@ -63,6 +88,10 @@ procedure main(args)
 		write(request_method)
 		write("-----------------------------------------")
 
+
+# Text Document Synchronization (didOpen, didClose, and didChange cases in switch statement below). 
+# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_synchronization 
+
 		case request_method of {
 			"initialize": {
 				result := initialize_handler(request_params)
@@ -71,34 +100,15 @@ procedure main(args)
 				writes(sock, res)
 				
 			 }
-			
-# Document Synchronization. Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_synchronization 
-#
-# General information:
-#
-# didOpen -- add file name to the array
-#	-Appears client is holding a list of open files.
-#	-When file is not in the list of currently "open" files and we select the file, this file will be added to the list.
-#	-If we then cycle through files that are already "open" (i.e. in the list), we will not receive another didOpen notification.
-#	-In essence, we only recieve the didOpen notification the first time the file is opened. Cycling does not trigger further didOpen notifications.
-#
-# didClose
-#	-Triggered by closing a tab in VS code. 
-#	-This removes the file from the list of open files on the client side and send notification to server.
-#	-Action on server --> remove file from the list of open files on server end, free up memory space held by that file (not sure if we are using string or creating a temp file).
-#	
-# didChange -- file synchronization
-#	-Each "open" file requires some way to synchronize (create temp file or hold in string)
-#	-Full file sync vs. 
-#
-# TODO:
-#	after implementing open file storing on server side, adjust parameters for handler functions to accept file as well.
-
 			"textDocument/didOpen" : {
-				uri := request_params["textDocument"]["uri"]
-				
-				#TODO read from saved file instead of empty string
-				openFiles[\uri] := ""
+				if \(uri := request_params["textDocument"]["uri"]) then {
+					file := uri[8:0]
+					if f := open(file) then {
+						initial_file_contents := reads(f, -1)
+						close(f)
+					}
+				}
+				openFiles[\uri] := initial_file_contents
 			}
 			"textDocument/didClose" : {
 				uri := request_params["textDocument"]["uri"]
@@ -117,7 +127,7 @@ procedure main(args)
 				file_contents := openFiles[uri]
 				result := handle_completion(request_params, file_contents)
 				res := build_response(request_id, result)
-				write(res)
+			#	write(res)
 				writes(sock, res)
 			}
 			"$/cancelRequest" : {
@@ -137,11 +147,141 @@ end
 
 
 #################################################################################
-#                               Build Lists                                     #
+#                            Build Global Variables                             #
 #################################################################################
 
+procedure build_global_variables()
+	openFiles := table()
+	built_in_functions := [:function():]
+	action_words := ["break", "case", "create", "critical", "every", "fail", "if", "initial", "initially", "next", "not", "repeat", "return", "suspend", "thread", "to", "until", "while"]
+	declarative_expressions := ["abstract", "class", "global", "import", "invocable", "link", "local", "method", "package", "procedure", "record", "static"]
+	syntax_reserved_words := ["all", "by", "default", "do", "end", "else", "of", "then"]
+	keywords := ["&allocated", "&ascii", "&clock", "&col", "&collections", "&column", "&control", "&cset", "&current", "&date", "&dateline", "&digits", "&dump", "&e", "&errno", "&error", "&errornumber", "&errortext", "&errorvalue", "&errout", "&eventcode", "&eventsource", "&eventvalue", "&fail", "&features", "&file", "&host", "&input", "&interval", "&lcase", "&ldrag", "&letters", "&level", "&line", "&lpress", "&lrelease", "&main", "&mdrag", "&meta", "&mpress", "&mreleasee", "&now", "&null", "&output", "&phi", "&pi", "&pick", "&pos", "&progname", "&random", "&rdrag", "&regions", "&resize", "&row", "&rpress", "&rrelease", "&shift", "&source", "&storage", "&subject", "&time", "&trace", "&ucase", "&version", "&window", "&x", "&y"]
+	preprocessors := ["$define", "$else", "$endif", "$error", "$ifdef", "$ifndef", "$include", "$line", "$undef", "#line"]
+
+	
 
 
+	# uni/lib, uni/3D, uni/GUI 
+	# start with lib or 3D (3d best)
+	# unidoc is not a standard library, we must add it to the PATH
+	# to add to path use command: export IPATH=/home/mark/Documents/unicon/uni/unidoc
+
+	link_functions := table()
+	ipl := open("/home/mark/Documents/unicon/ipl/procs/*.icn")
+	
+
+
+# TODO: Setup our database of procedures contained within files, files within packages, etc. using UniDoc 
+# All of this code below to be replaced.
+
+	every ipl_file_line := !ipl do {
+
+		reversed_file := reverse(ipl_file_line)                        # scan from end
+		reversed_file ? {
+			move(4)                                                    # skipping .icn
+			file_name_without_ext := tab(upto("/"))
+			file_name_without_ext := reverse(file_name_without_ext)
+		}
+
+		link_functions[file_name_without_ext] := table()
+
+
+		current_file := open(ipl_file_line)
+		every current_file_line := !current_file do {
+			current_file_line ? {
+				tab(many(' \t'))
+				first_word := tab(many(&letters)) | &null
+				if /first_word | first_word ~== "procedure" then next
+				else {
+					tab(many(' \t'))
+					function_name := tab(upto("("))
+					while function_name[-1] == " " do function_name := function_name[1:-1]
+					link_functions[file_name_without_ext][function_name] := []
+					parameter_list := []
+					
+
+#	Can have spaces, newlines in param list - see if we can extract methods/functions using UniDoc
+#	
+#					function_parameters := tab(upto(")")
+#					function_parameters ? {
+#						tab(many(' \t'))
+#						while parameter := tab(upto(",")) do {
+#							while parameter[-1] == " " do function_name := function_name[1:-1]
+#							put(parameter_list, parameter)
+#							move(1)
+#						}
+#						put(parameter_list, parameter)
+#					} 
+#					link_functions[file_name_without_ext][function_name] := parameter_list
+
+
+				} 
+			}
+		}
+	}
+	write(ximage(link_functions))
+
+end
+
+#################################################################################
+#                                 Unidoc                                        #
+#################################################################################
+# export IPATH=/home/mark/Documents/unicon/uni/unidoc
+procedure build_unidoc()
+
+	T := table()
+	idoc := UniAll()
+
+	idoc.setSourcePath("/home/mark/Documents/unicon/uni/3d")
+	idoc.processFile("/home/mark/Documents/unicon/uni/3d")
+
+   every pack := !idoc.packages do {
+      write("package:", image(pack.getName()))
+
+      write("  classes:")
+      every x := pack.getClasses().get() do {
+         write("\t", image(x.getName()))
+         write("\t\tmethods:")
+         every meth := x.getMethods().get() do {
+            write("\t\t\t", image(meth.name))
+            #writes("  params: ")
+            #every writes(meth.getParams().get())
+            #write("")
+            }
+         }
+
+      write("  imports:")
+      every x := pack.getImports().get() do {
+         write("\t", image(x.getName()))
+         }
+
+
+      write("  files:")
+      every x := pack.getFiles().get() do {
+  
+         write("\t", image(x.getName()))
+
+         T[x.getName()] :=  x
+
+
+
+         write("\t  procedures:")
+         every y := x.getProcedures().get() do {
+            write("\t\t", image(y.getName()))
+            }
+         
+         write("\t  globals:")
+         every y := x.getGlobals().get() do {
+            write("\t\t", image(y.getName()))
+            }
+
+
+         }
+      }
+
+
+end
 
 #################################################################################
 #								Get Request										#
@@ -175,9 +315,8 @@ procedure get_request(sock)
 end
 
 
-
 #################################################################################
-#								Build Response									#
+#                               Build Response                                  #
 #################################################################################
 
 procedure build_response(id, results)
@@ -186,6 +325,28 @@ procedure build_response(id, results)
 	return responseHeader || responseBody
 end
 
+#################################################################################
+#                                Get Context                                    #
+#################################################################################
+
+# Return number for context reference
+# Case 0: No context (empty file) - return all
+# Case 1: Outside of procedure/class/(everything/whatever)
+# Case 2: Inside a class
+# Case 3: Inside a procedure (with / without end)
+# Case 4: Access modifier (dot operator) for accessing object/class methods/data fields 
+# Case 5: Variable assignments (last non blank character prior to position is "=")
+
+#	variable:=(could be here)
+#	variable := (could be here)
+#	variable :=   (could be here)
+
+procedure get_context(file_contents, line_number, character)
+
+	if \file_contents | file_contents == "" then return 0
+#	if (line_number == 0)
+	
+end
 
 #################################################################################
 #							Response: initialize								#
@@ -196,14 +357,13 @@ end
 #
 # TODO: 
 # 	As you add more functionality (capabilities), you must add them to the string 
-# 	below within capabilities property
-
+# 	  below within capabilities property
 #	Handle results --> generator prepending escape sequence before special characters
 
 procedure initialize_handler(jsontable)
 
 	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true}}}"
-	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true},\"textDocumentSync\":1}}"
+	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true},\"textDocumentSync\":1,\"signatureHelp\":{\"contextSupport\":true}}}"
 
 	return body
 end
@@ -239,23 +399,23 @@ end
 #############################################################
 #						Example Request 				    #
 #############################################################
-#	{													    #
-#  		"jsonrpc": "2.0",								    #
-#  		"id": 1,										    #
-#  		"method": "textDocument/completion",				#
-#  		"params": {											#
-#    		"textDocument": {								#
-#      		"uri": "file:///home/mark/Desktop/test.icn"		#
-#    		},												#
-#    		"position": {									#
-#      		"line": 0,										#
-#      		"character": 1									#
-#    		},												#
-#    		"context": {									#
-#      		"triggerKind": 1								#
-#   		 }												#
-# 		 }													#
-#	}														#
+#   {                                                       #
+#       "jsonrpc": "2.0",                                   #
+#       "id": 1,                                            #
+#       "method": "textDocument/completion",                #
+#       "params": {                                         #
+#           "textDocument": {                               #
+#           "uri": "file:///home/mark/Desktop/test.icn"     #
+#           },                                              #
+#           "position": {                                   #
+#           "line": 0,                                      #
+#           "character": 1                                  #
+#           },                                              #
+#           "context": {                                    #
+#           "triggerKind": 1                                #
+#            }                                              #
+#        }                                                  #
+#   }                                                       #
 #############################################################
 
 
@@ -266,75 +426,40 @@ end
 
 
 procedure handle_completion(params, file_contents)
-	textDocument := params["textDocument"]["uri"]
-	line := params["position"]["line"]
+	line_number := params["position"]["line"]
 	character := params["position"]["character"]
 
-#	 Move back 1 character at a time until char == " " or start of line
-#	 Counter variable to make sure we do not exceed value of character (position in line) 
-#	 Issue with reading file - reading original file, not buffered.
 
-	f := open("nothing_to_see_here.txt", "w") | stop(&errortext, "fail to open")
-	write(f, file_contents)
 
-	close(f)
 
-	f := open("nothing_to_see_here.txt") | stop(&errortext, "fail to open")
+	lines := fieldlist(file_contents, '\n')
+	links := []
+	every line := !lines do {
+		line ? {
+			tab(many(' \t'))
 
-	every !line & read(f)
-	data := read(f)
-	write(data)
+			if = "link" then {
+				tab(many(' \t'))
+				put(links, tab(many(&ascii)))
+			}
+		}
+	}
+	write(ximage(links))
 
-	close(f)	
+	if \(line := lines[line_number + 1]) then {
+		line ? {
+			prefix := reverse(tab(character + 1))
+			write("prefix: ", prefix)
+			prefix ? { 
+				word := tab(many(&letters ++ &digits ++ '_' ++ '&'))
+			}
+			if \word then {
+				word := reverse(word)
+			}
+		}
+	}
 	
-
-#	current_word := ""
-#	data ? {
-#		if character == 0
-#		move(character)
-#		while(ch ~== ' ') do {
-#			ch := move(-1)
-#			current_word := current_word || ch
-#		}
-#	}
-#	current_word := reverse(current_word)
-
-
-
-#	data ? {
-#		move(character)
-#		word := ""
-#		count := character
-#		ch := move(count)
-#		special operators in scanning environment 
-#		while (ch ~== ' ' & count > 0) do {
-#			writes(ch)
-#			write(count)
-#			word := word || ch
-#			count := count - 1
-#			ch := move(count)
-#		}
-#		word := reverse(word)
-#	}
-#	
-#	write(word)
-	
-
-	
-#	data ? {
-#
-#		position := character - 1
-#
-#		while ((data[position] ~== " ") & (position > 0)) do position := position - 1 
-#		
-#		move(position)
-#		char := tab(1)
-#		#word := tab(many(&digits ++ &letters ++ '_'))
-#	}
-#
-#	write(image(word))
-	
-
+	write(word)
 
 
 	T := table()
@@ -354,4 +479,7 @@ procedure handle_completion(params, file_contents)
 
 	return results
 end
+
+
+
 
