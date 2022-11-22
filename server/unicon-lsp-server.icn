@@ -426,17 +426,30 @@ procedure handle_completion(params, file_contents)
 
 
 	lines := fieldlist(file_contents, '\n')
-	links := []
+	linked_files := []
 	every line := !lines do {
 		line ? {
 			tab(many(' \t'))
 
 			if = "link" then {
 				tab(many(' \t'))
-				put(links, tab(many(&ascii)))
+				put(linked_files, tab(many(&ascii)))
 			}
 		}
 	}
+
+	imported_packages := []
+	every line := !liness do {
+		line ? {
+			tab(many(' \t'))
+
+			if = "import" then {
+				tab(many(' \t'))
+				put(imported_packages, tab(many(&ascii)))
+			}
+		}
+	}
+
 	write(ximage(links))
 
 	if \(line := lines[line_number + 1]) then {
