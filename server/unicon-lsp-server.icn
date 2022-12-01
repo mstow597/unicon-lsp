@@ -1,25 +1,19 @@
-# uniclass.dir
-# uniclass.pag
-# avoid odbc (database)
-# interfaces with SQLite - if persistent data 
-
 link options
 link basename
 link ximage
 link strings
 import UniDoc
 import json
+import ulsp
 
-
-
-global openFiles					# File container for open files
-global built_in_functions			# List containing all native function names
-global action_words					# List containing the action words (subset of reserved words)
-global declarative_expressions		# List containing the declarative expressions (subset of reserved words)
-global syntax_reserved_words		# List containing the syntax reserved words (subset of reserved words)
-global keywords						# List containing all keywords
-global preprocessors				# List containing all preprocessors
-global link_functions				# table() with key:value --> file_name:table() with key:value --> procedure:list where list contains the parameters for the function  
+global openFiles                    # File container for open files
+global built_in_functions           # List containing all native function names
+global action_words                 # List containing the action words (subset of reserved words)
+global declarative_expressions      # List containing the declarative expressions (subset of reserved words)
+global syntax_reserved_words        # List containing the syntax reserved words (subset of reserved words)
+global keywords                     # List containing all keywords
+global preprocessors                # List containing all preprocessors
+global T_packages                   # table containing database of packages (i.e. main, graphics3d, etc.) and their files.
 
 
 #################################################################################
@@ -70,16 +64,15 @@ procedure main(args)
 #################################################################################
 #                                   Main Loop                                   #
 #################################################################################
-	
+
 	build_global_variables()
-	build_unidoc()
-	
+
 	repeat {
 
 
 		body := get_request(sock)
 		jsontable := jtou(body)
-	
+
 
 		request_method := jsontable["method"]
 		request_params := jsontable["params"]
@@ -106,18 +99,22 @@ procedure main(args)
 						close(f)
 					}
 				}
-				openFiles[\uri] := initial_file_contents
+				openFiles[\uri] := Workspace(uri[8:0], T_packages)
+				workspace_object := openFiles[\uri]
+				workspace_object.updateTempFile(initial_file_contents)
 			}
 			"textDocument/didClose" : {
 				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didClose
 				uri := request_params["textDocument"]["uri"]
+
 				delete(openFiles, \uri)
 			}
 			"textDocument/didChange" : {
 				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_didChange
 				uri := request_params["textDocument"]["uri"]
 				file_contents := request_params["contentChanges"][1]["text"]
-				openFiles[\uri] := file_contents
+				workspace_object := openFiles[\uri]
+				workspace_object.updateTempFile(file_contents)
 			}
 			"textDocument/declaration" : {
 				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_declaration
@@ -126,10 +123,9 @@ procedure main(args)
 			"textDocument/completion" : {
 				# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
 				uri := request_params["textDocument"]["uri"]
-				file_contents := openFiles[uri]
-				result := handle_completion(request_params, file_contents)
+				workspace_object := openFiles[\uri]
+				result := handle_completion(request_params, workspace_object)
 				res := build_response(request_id, result)
-			#	write(res)
 				writes(sock, res)
 			}
 			"$/cancelRequest" : {
@@ -138,8 +134,8 @@ procedure main(args)
 				# 	Spin up thread(s) for processing requests and tie request_id to thread
 				# Handling cancel requests:
 				#	kill thread associated with request_id
-			
-			
+
+
 				write("We received a cancel request.")
 			}
 			default: { write("Don't know what to do with: ", request_method) }
@@ -153,127 +149,99 @@ end
 #################################################################################
 
 procedure build_global_variables()
+
 	openFiles := table()
 	built_in_functions := [:function():]
+	T_packages := build_lsp_database()
 	action_words := ["break", "case", "create", "critical", "every", "fail", "if", "initial", "initially", "next", "not", "repeat", "return", "suspend", "thread", "to", "until", "while"]
 	declarative_expressions := ["abstract", "class", "global", "import", "invocable", "link", "local", "method", "package", "procedure", "record", "static"]
 	syntax_reserved_words := ["all", "by", "default", "do", "end", "else", "of", "then"]
 	keywords := ["&allocated", "&ascii", "&clock", "&col", "&collections", "&column", "&control", "&cset", "&current", "&date", "&dateline", "&digits", "&dump", "&e", "&errno", "&error", "&errornumber", "&errortext", "&errorvalue", "&errout", "&eventcode", "&eventsource", "&eventvalue", "&fail", "&features", "&file", "&host", "&input", "&interval", "&lcase", "&ldrag", "&letters", "&level", "&line", "&lpress", "&lrelease", "&main", "&mdrag", "&meta", "&mpress", "&mreleasee", "&now", "&null", "&output", "&phi", "&pi", "&pick", "&pos", "&progname", "&random", "&rdrag", "&regions", "&resize", "&row", "&rpress", "&rrelease", "&shift", "&source", "&storage", "&subject", "&time", "&trace", "&ucase", "&version", "&window", "&x", "&y"]
 	preprocessors := ["$define", "$else", "$endif", "$error", "$ifdef", "$ifndef", "$include", "$line", "$undef", "#line"]
 
-	
-	link_functions := table()
-	ipl := open("/home/mark/Documents/unicon/ipl/procs/*.icn")
-	
-# TODO: Setup our database of procedures contained within files, files within packages, etc. using UniDoc 
-# All of this code below to be replaced.
-
-	every ipl_file_line := !ipl do {
-
-		reversed_file := reverse(ipl_file_line)                        # scan from end
-		reversed_file ? {
-			move(4)                                                    # skipping .icn
-			file_name_without_ext := tab(upto("/"))
-			file_name_without_ext := reverse(file_name_without_ext)
-		}
-
-		link_functions[file_name_without_ext] := table()
-
-
-		current_file := open(ipl_file_line)
-		every current_file_line := !current_file do {
-			current_file_line ? {
-				tab(many(' \t'))
-				first_word := tab(many(&letters)) | &null
-				if /first_word | first_word ~== "procedure" then next
-				else {
-					tab(many(' \t'))
-					function_name := tab(upto("("))
-					while function_name[-1] == " " do function_name := function_name[1:-1]
-					link_functions[file_name_without_ext][function_name] := []
-					parameter_list := []
-					
-
-#	Can have spaces, newlines in param list - see if we can extract methods/functions using UniDoc
-#	
-#					function_parameters := tab(upto(")")
-#					function_parameters ? {
-#						tab(many(' \t'))
-#						while parameter := tab(upto(",")) do {
-#							while parameter[-1] == " " do function_name := function_name[1:-1]
-#							put(parameter_list, parameter)
-#							move(1)
-#						}
-#						put(parameter_list, parameter)
-#					} 
-#					link_functions[file_name_without_ext][function_name] := parameter_list
-
-
-				} 
-			}
-		}
-	}
-	write(ximage(link_functions))
-
 end
 
 #################################################################################
-#                                 Unidoc                                        #
+#                                 "Database"                                    #
 #################################################################################
-# export IPATH=/home/mark/Documents/unicon/uni/unidoc
-procedure build_unidoc()
 
-	T := table()
+procedure build_lsp_database()
+
+	paths := []
+	put(paths, "/home/mark/Documents/unicon/uni/3d")
+	put(paths, "/home/mark/Documents/unicon/uni/gui")
+	#put(paths, "/home/mark/Documents/unicon/uni/parser")
+	put(paths, "/home/mark/Documents/unicon/uni/xml")
+	put(paths, "/home/mark/Documents/unicon/uni/lib")
+	put(paths, "/home/mark/Documents/unicon/ipl/procs")
+    put(paths, "/home/mark/Documents/unicon/uni/unidoc")
+
+	T_packages := table()
+	every path := !paths do build(path, T_packages)
+
+
+end
+
+procedure build(path, T_packages)
+
+	local idoc
+
 	idoc := UniAll()
 
-	idoc.setSourcePath("/home/mark/Documents/unicon/uni/3d")
-	idoc.processFile("/home/mark/Documents/unicon/uni/3d")
+	idoc.setSourcePath(path)
+	idoc.processFile(path)
 
-   every pack := !idoc.packages do {
-      write("package:", image(pack.getName()))
+	x := idoc.packages
 
-      write("  classes:")
-      every x := pack.getClasses().get() do {
-         write("\t", image(x.getName()))
-         write("\t\tmethods:")
-         every meth := x.getMethods().get() do {
-            write("\t\t\t", image(meth.name))
-            #writes("  params: ")
-            #every writes(meth.getParams().get())
-            #write("")
-            }
-         }
+	every pack := !x do {
+		
+		if /T_packages[pack.getName()] then {
+			T_packages[pack.getName()] := table()
+			T_packages[pack.getName()]["files"] := table()
+		}
 
-      write("  imports:")
-      every x := pack.getImports().get() do {
-         write("\t", image(x.getName()))
-         }
+		every file_in_pack := pack.getFiles().get() do {
+
+			file_without_ext := &null
+			file_in_pack.getName() ? {
+				file_without_ext := tab(upto("."))
+			}
+			
+			T_packages[pack.getName()]["files"][file_without_ext] := table()
 
 
-      write("  files:")
-      every x := pack.getFiles().get() do {
-  
-         write("\t", image(x.getName()))
-
-         T[x.getName()] :=  x
+			if /T_packages[pack.getName()]["files"][file_without_ext]["imports"] then T_packages[pack.getName()]["files"][file_without_ext]["imports"] := [] 
+			every import_in_file := file_in_pack.getImports().get() do {
+				put(T_packages[pack.getName()]["files"][file_without_ext]["imports"], import_in_file.getName())
+			}
 
 
+			if /T_packages[pack.getName()]["files"][file_without_ext]["procedures"] then T_packages[pack.getName()]["files"][file_without_ext]["procedures"] := []
+			every procedure_in_file := file_in_pack.getProcedures().get() do {
+				put(T_packages[pack.getName()]["files"][file_without_ext]["procedures"], procedure_in_file.getName())
+			}
 
-         write("\t  procedures:")
-         every y := x.getProcedures().get() do {
-            write("\t\t", image(y.getName()))
-            }
-         
-         write("\t  globals:")
-         every y := x.getGlobals().get() do {
-            write("\t\t", image(y.getName()))
-            }
-
-
-         }
-      }
+			if /T_packages[pack.getName()]["files"][file_without_ext]["classes"] then T_packages[pack.getName()]["files"][file_without_ext]["classes"] := table()
+			every class_in_file := file_in_pack.getClasses().get() do {
+				T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()] := table()
+				T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["methods"] := []
+				T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["attributes"] := []
+				T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["comments"] := []
+				T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["superclass"] := []
 
 
+				every method_in_class := class_in_file.getMethods().get() do {
+					put(T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["methods"], method_in_class.getName())
+				}
+				every class_param := class_in_file.getParams().get() do {
+					put(T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["attributes"], class_param.getName())
+				}
+				every class_comment := class_in_file.getComments().get() do {
+					put(T_packages[pack.getName()]["files"][file_without_ext]["classes"][class_in_file.getName()]["comments"], class_comment.get())
+				}
+			}
+		}
+	}
 end
 
 #################################################################################
@@ -286,7 +254,7 @@ procedure get_request(sock)
 	local body, msg
 
 	while /body | body == "" do {
-		
+
 		# Block and get message on socket
 		select(sock)
 		msg := ready(sock)
@@ -319,37 +287,14 @@ procedure build_response(id, results)
 end
 
 #################################################################################
-#                                Get Context                                    #
-#################################################################################
-
-# Return number for context reference
-# Case 0: No context (empty file) - return all
-# Case 1: Outside of procedure/class/(everything/whatever)
-# Case 2: Inside a class
-# Case 3: Inside a procedure (with / without end)
-# Case 4: Access modifier (dot operator) for accessing object/class methods/data fields 
-# Case 5: Variable assignments (last non blank character prior to position is "=")
-
-#	variable:=(could be here)
-#	variable := (could be here)
-#	variable :=   (could be here)
-
-procedure get_context(file_contents, line_number, character)
-
-	if \file_contents | file_contents == "" then return 0
-#	if (line_number == 0)
-	
-end
-
-#################################################################################
 #                             Response: initialize                              #
 #################################################################################
 
-# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize 
+# Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initialize
 #
 #
-# TODO: 
-# 	As you add more functionality (capabilities), you must add them to the string 
+# TODO:
+# 	As you add more functionality (capabilities), you must add them to the string
 # 	  below within capabilities property
 #	Handle results --> generator prepending escape sequence before special characters
 
@@ -361,131 +306,217 @@ procedure initialize_handler(jsontable)
 	return body
 end
 
-
 #################################################################################
 #                         Capability: declarationProvider                       #
 #################################################################################
 
 # Detailed info available at: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_declaration
-# 
-#
-# This capability defines "go to declaration" functionality.
-# The go to declaration request is sent from the client to the server to resolve 
-# the declaration location of a symbol at a given text document position.
-# 
-# Client Capability (VS code definition):
-#	name: 
-#	type: 
-# Server Capability:
-#	name: 
-#	type: 
-#
-
-
 
 
 #################################################################################
 #                         Capability: completionProvider                        #
 #################################################################################
 
+procedure getObjectName(line, character)
+	identifiers := &letters ++ &digits ++ '_' ++ '-'
 
-#############################################################
-#                       Example Request                     #
-#############################################################
-#   {                                                       #
-#       "jsonrpc": "2.0",                                   #
-#       "id": 1,                                            #
-#       "method": "textDocument/completion",                #
-#       "params": {                                         #
-#           "textDocument": {                               #
-#           "uri": "file:///home/mark/Desktop/test.icn"     #
-#           },                                              #
-#           "position": {                                   #
-#           "line": 0,                                      #
-#           "character": 1                                  #
-#           },                                              #
-#           "context": {                                    #
-#           "triggerKind": 1                                #
-#            }                                              #
-#        }                                                  #
-#   }                                                       #
-#############################################################
+	line ? {
+		temp := tab(character + 1)
+		write("--------------------")
+		write("temp")
+		write(temp)
+		write("--------------------")
+		while c := move(-1) do {
+			write("-----------------")
+			write("c: ")
+			write(c)
+			write("-----------------")
+			if (c ** identifiers) ~== c then { 
+				break
+			}
+		}
 
+		write("Before if ", &subject[&pos:0])
+		if ="." then {
+			write("Inside if ", &subject[&pos:0])
+			move(-1)
 
+			while c := move(-1) do {
+				if (c ** identifiers) ~== c then { 
+					move(1)
+					break
+				}
+			}
+			write("Inside if, after while ", &subject[&pos:0])
+			objectName := tab(upto("."))
+			write("--------------------")
+			write("Object name: ")
+			write(objectName)
+			write("--------------------")
+			return objectName
+			
+		}
+	}
 
-# Build list of keywords, reserved words, functions (done)
-# Default: send keywords, reserved words
-#  ||| concatenate lists
+end
 
+procedure getDesiredLine(line, file)
+	f := open(file)
+	every !line do read(f)
+	desired_line := read(f)
+	return desired_line
+end
 
-procedure handle_completion(params, file_contents)
-	line_number := params["position"]["line"]
+procedure getContext(line, character, file)
+
+	desired_line := getDesiredLine(line, file)
+
+	#-----------------------------------------------#
+	#----------- Case "inside comment" -------------#
+	#-----------------------------------------------#
+	
+	desired_line ? {
+		while (&pos < character) do {
+			ch := move(1)
+			if ch == "#" then return "inside comment"
+		}
+	}
+
+	#-----------------------------------------------#
+	#-------- Case "after dot operator" ------------#
+	#-----------------------------------------------#
+
+	if objectName := getObjectName(desired_line, character) then 
+		return "after dot operator"  
+
+	#-----------------------------------------------#
+	#---------------- Default case -----------------#
+	#-----------------------------------------------#
+
+	
+end
+
+procedure handle_completion(params, workspace)
+	line := params["position"]["line"]
 	character := params["position"]["character"]
 
+	_context := getContext(line, character, workspace.temp_file)
 
+	write("-------------------------")
+	write("Context: ", _context)
+	write("-------------------------")
 
+	results_table := table()
+	results_table["isComplete"] :=  "__true__"
+	results_table["items"] := []
 
-	lines := fieldlist(file_contents, '\n')
-	linked_files := []
-	every line := !lines do {
-		line ? {
-			tab(many(' \t'))
-
-			if = "link" then {
-				tab(many(' \t'))
-				put(linked_files, tab(many(&ascii)))
-			}
+	case _context of {
+		"inside comment" : {
+			write("Hit inside comment case")
+			results_table["items"] := []
+		}
+		"after dot operator" : {
+			write("Hit after dot operator case")
+			desired_line := getDesiredLine(line, workspace.temp_file)	
+			objectName := getObjectName(desired_line, character) 
+			workspace.buildObjectCompletionItems(results_table, objectName)
+		}
+		default : { 
+			write("Hit default case")
+			buildDefaultCompletionItems(results_table, workspace)
 		}
 	}
 
-	imported_packages := []
-	every line := !liness do {
-		line ? {
-			tab(many(' \t'))
-
-			if = "import" then {
-				tab(many(' \t'))
-				put(imported_packages, tab(many(&ascii)))
-			}
-		}
-	}
-
-	write(ximage(links))
-
-	if \(line := lines[line_number + 1]) then {
-		line ? {
-			prefix := reverse(tab(character + 1))
-			write("prefix: ", prefix)
-			prefix ? { 
-				word := tab(many(&letters ++ &digits ++ '_' ++ '&'))
-			}
-			if \word then {
-				word := reverse(word)
-			}
-		}
-	}
-	
-	write(word)
-
-
-	T := table()
-	T["isComplete"] :=  "__true__"
-	L := []
-	T["items"] := L
-
-	completions := built_in_functions #["procedure", "main"]
-	every w := !completions do 
-		put(L, table("label", w)) 
-
-	results := tojson(T)
-	
-
-#	results := "{\"isComplete\":\"true\",\"items\":[{\"label\":\"apple\"},{\"label\":\"along\"},{\"label\":\"anomoly\"},{\"label\":\"according\"},{\"label\":\"args\"}]}"
-#	write(results)
-
+	results := tojson(results_table)
 	return results
+
+
 end
 
 
+procedure addBuiltInFunctionsCompletionItems(results_table)
 
+	every _function := !built_in_functions do {
+		put(results_table["items"], table("label", _function, "kind", 3))
+	}
 
+end
+
+procedure addActionWordsCompletionItems(results_table)
+
+	every _actionWord := !action_words do {
+		put(results_table["items"], table("label", _actionWord))
+	}
+
+end
+
+procedure addDeclarativeExpressionsCompletionItems(results_table)
+
+	every _declarativeExpression := !declarative_expressions do {
+		put(results_table["items"], table("label", _declarativeExpression))
+	}
+
+end
+
+procedure addSyntaxReservedWordsCompletionItems(results_table)
+
+	every _syntaxReservedWord := !syntax_reserved_words do {
+		put(results_table["items"], table("label", _syntaxReservedWord))
+	}
+
+end
+
+procedure addKeywordsCompletionItems(results_table)
+
+	every _keyword := !keywords do {
+		put(results_table["items"], table("label", _keyword, "kind", 14))
+	}
+
+end
+
+procedure addPreprocessorCompletionItems(results_table)
+
+	every _preprocessor := !preprocessors do {
+		put(results_table["items"], table("label", _preprocessor))
+	}
+
+end
+
+procedure addWorkspaceProcedures(results_table, workspace)
+
+	every _internalProcedure := !workspace.getInternalProcedures() do {
+		put(results_table["items"], table("label", _internalProcedure, "kind", 3))
+	}
+	every _linkedProcedure := !workspace.getLinkedProcedures() do {
+		put(results_table["items"], table("label", _linkedProcedure, "kind", 3))
+	}
+	every _importedProcedure := !workspace.getImportedProcedures() do {
+		put(results_table["items"], table("label", _importedProcedure, "kind", 3))
+	}
+
+end
+
+procedure addWordspaceClasses(results_table, workspace)
+	
+	every _internalClass := !workspace.getInternalClasses() do {
+		put(results_table["items"], table("label", _internalClass, "kind", 3))
+	}
+	every _linkedClass := !workspace.getLinkedClasses() do {
+		put(results_table["items"], table("label", _linkedClass, "kind", 3))
+	}
+	every _importedClass := !workspace.getImportedClasses() do {
+		put(results_table["items"], table("label", _importedClass, "kind", 3))
+	}
+
+end
+
+procedure buildDefaultCompletionItems(results_table, workspace)
+	addActionWordsCompletionItems(results_table)
+	addBuiltInFunctionsCompletionItems(results_table)
+	addDeclarativeExpressionsCompletionItems(results_table)
+	addKeywordsCompletionItems(results_table)
+	addPreprocessorCompletionItems(results_table)
+	addSyntaxReservedWordsCompletionItems(results_table)
+	addWordspaceClasses(results_table, workspace)
+	addWorkspaceProcedures(results_table, workspace)
+end
