@@ -300,7 +300,6 @@ end
 
 procedure initialize_handler(jsontable)
 
-	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true}}}"
 	body := "{\"capabilities\":{\"completionProvider\":{\"resolveProvider\":true},\"textDocumentSync\":1,\"signatureHelp\":{\"contextSupport\":true}}}"
 
 	return body
@@ -322,23 +321,13 @@ procedure getObjectName(line, character)
 
 	line ? {
 		temp := tab(character + 1)
-		write("--------------------")
-		write("temp")
-		write(temp)
-		write("--------------------")
 		while c := move(-1) do {
-			write("-----------------")
-			write("c: ")
-			write(c)
-			write("-----------------")
 			if (c ** identifiers) ~== c then { 
 				break
 			}
 		}
 
-		write("Before if ", &subject[&pos:0])
 		if ="." then {
-			write("Inside if ", &subject[&pos:0])
 			move(-1)
 
 			while c := move(-1) do {
@@ -347,12 +336,7 @@ procedure getObjectName(line, character)
 					break
 				}
 			}
-			write("Inside if, after while ", &subject[&pos:0])
 			objectName := tab(upto("."))
-			write("--------------------")
-			write("Object name: ")
-			write(objectName)
-			write("--------------------")
 			return objectName
 			
 		}
@@ -393,18 +377,17 @@ procedure getContext(line, character, file)
 	#---------------- Default case -----------------#
 	#-----------------------------------------------#
 
+
 	
 end
 
 procedure handle_completion(params, workspace)
+	local _context, line, character, results_table, results
+	
 	line := params["position"]["line"]
 	character := params["position"]["character"]
 
 	_context := getContext(line, character, workspace.temp_file)
-
-	write("-------------------------")
-	write("Context: ", _context)
-	write("-------------------------")
 
 	results_table := table()
 	results_table["isComplete"] :=  "__true__"
@@ -412,17 +395,14 @@ procedure handle_completion(params, workspace)
 
 	case _context of {
 		"inside comment" : {
-			write("Hit inside comment case")
 			results_table["items"] := []
 		}
 		"after dot operator" : {
-			write("Hit after dot operator case")
 			desired_line := getDesiredLine(line, workspace.temp_file)	
 			objectName := getObjectName(desired_line, character) 
 			workspace.buildObjectCompletionItems(results_table, objectName)
 		}
 		default : { 
-			write("Hit default case")
 			buildDefaultCompletionItems(results_table, workspace)
 		}
 	}
