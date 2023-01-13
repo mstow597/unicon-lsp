@@ -21,11 +21,7 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
 	const transport: SocketTransport = { kind: TransportKind.socket, port: 8080 };
 	// const options: ExecutableOptions = { detached: true, shell: true };
-<<<<<<< HEAD
 	const unicon: Executable = { command: '/home/mark/unicon-lspfork/unicon/uni/ulsp/launch-lsp', transport: transport };
-=======
-	const unicon: Executable = { command: '/home/mark/Documents/unicon/uni/ulsp/launch-lsp', transport: transport };
->>>>>>> 5ac359b8a3196e2e62c24496edfd6e0b0a776e50
 	const serverOptions: ServerOptions = {
 		run: unicon,
 		debug: unicon
