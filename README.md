@@ -27,12 +27,6 @@ This repo contains the VS Code client for Unicon language server
 > > 3a) navigate to `/path_to_repo/client/src/extension.ts` file <br />
 > > 3b) Edit line 24 (alter path within <...>, requires absolute path) --> <br />`const unicon: Executable = { command: '</ABSOLUTE_PATH_TO_REPO_DIRECTORY/server/unicon-lsp-server>', transport: transport };`
 
-### Server setup: <br />
-
-> 1. Move to the server folder: `cd /path_to_repo/server` <br />
-> 2. Build server: `unicon unicon-lsp-server.icn`
-
-
 # Run and Debug
 
 We can test our server using the run and debug feature in VS code. 
