@@ -4,7 +4,7 @@ Pre-requisites: git, node, unicon, and VScode installed
 
 # Description
 
-This repo contains both the VS Code client... 
+This repo contains the VS Code client for Unicon language server 
 
 # Setup
 
