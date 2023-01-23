@@ -3,8 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import * as cp from "child_process";
-import * as path from 'path';
+import * as which from 'which';
 import { workspace, ExtensionContext } from 'vscode';
 
 import {
@@ -16,12 +15,16 @@ import {
 	Executable
 } from 'vscode-languageclient/node';
 
+
+const pathToLS = which.sync('ulsp');
+console.log(pathToLS);
+
 let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 	const transport: SocketTransport = { kind: TransportKind.socket, port: 8080 };
 	// const options: ExecutableOptions = { detached: true, shell: true };
-	const unicon: Executable = { command: '/home/mark/unicon-lspfork/unicon/uni/ulsp/launch-lsp', transport: transport };
+	const unicon: Executable = { command: pathToLS, transport: transport };
 	const serverOptions: ServerOptions = {
 		run: unicon,
 		debug: unicon
